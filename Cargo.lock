@@ -673,6 +673,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a12916984aab3fa6e39d655a33e09c0071eb36d6ab3aea5c2d78551f1df6d952"
 
 [[package]]
+name = "case"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd6c0e7b807d60291f42f33f58480c0bfafe28ed08286446f45e463728cf9c1c"
+
+[[package]]
 name = "cc"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1373,7 +1379,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "fp-account"
 version = "1.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "hex",
  "impl-serde",
@@ -1391,7 +1397,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -1402,7 +1408,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -1414,7 +1420,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "evm",
  "frame-support",
@@ -1429,7 +1435,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -1445,7 +1451,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -1457,7 +1463,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -1862,10 +1868,11 @@ dependencies = [
 
 [[package]]
 name = "hp-system"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "sp-core",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
 ]
@@ -2610,7 +2617,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "environmental",
  "evm",
@@ -2634,7 +2641,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-evm-precompile-call-hybrid-vm"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "evm",
  "fp-evm",
@@ -2645,7 +2652,6 @@ dependencies = [
  "pallet-evm",
  "pallet-hybrid-vm",
  "pallet-timestamp",
- "parity-scale-codec",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -2655,7 +2661,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/paritytech/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -2664,12 +2670,13 @@ dependencies = [
 
 [[package]]
 name = "pallet-hybrid-vm"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "assert_matches",
  "blake2-rfc",
  "byte-slice-cast",
  "ethereum",
+ "fp-account",
  "fp-evm",
  "frame-support",
  "frame-system",
@@ -2705,11 +2712,13 @@ dependencies = [
 
 [[package]]
 name = "pallet-hybrid-vm-port"
-version = "0.2.0-dev"
+version = "0.3.0"
 dependencies = [
+ "byte-slice-cast",
  "ethereum",
  "ethereum-types",
  "evm",
+ "fp-account",
  "fp-consensus",
  "fp-ethereum",
  "fp-evm",
@@ -2719,19 +2728,24 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "hp-system",
  "ink_env",
  "libsecp256k1",
  "pallet-balances",
  "pallet-contracts",
  "pallet-evm",
  "pallet-hybrid-vm",
+ "pallet-insecure-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
+ "precompile-utils",
  "rlp",
  "scale-info",
+ "sha3 0.8.2",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
 ]
 
 [[package]]
@@ -2992,6 +3006,44 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "precompile-utils"
+version = "0.1.0"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+dependencies = [
+ "environmental",
+ "evm",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "impl-trait-for-tuples",
+ "log",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils-macro",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-weights 27.0.0",
+ "staging-xcm 7.0.0",
+]
+
+[[package]]
+name = "precompile-utils-macro"
+version = "0.1.0"
+source = "git+https://github.com/polkadot-evm/frontier?branch=polkadot-v1.11.0#5779b59043ae018d07d84f4e8e0c49087f804d3a"
+dependencies = [
+ "case",
+ "num_enum",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "sp-crypto-hashing",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "pretty_assertions"

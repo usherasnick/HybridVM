@@ -32,19 +32,19 @@ contract TestEvmToken is ERC20 {
 		bytes memory outbytes = new bytes(1024);
 		uint gasdata = gasleft();
 		assembly {
-			if iszero(delegatecall(gasdata, 0x05, input, inputLen, outbytes, 1024)) {
+			if iszero(delegatecall(gasdata, 0x64, input, inputLen, outbytes, 1024)) {
 				revert(0,0)
 			}
 		}
 		return string(outbytes);
 	}
 	
-	function evmCallWasm(bytes32 bob, uint256 value, bytes32 contractid) public returns (string memory) {
+	function evmCallWasm(bytes20 bob, uint256 value, bytes20 contractid) public returns (string memory) {
 		
 		bytes memory input1 = bytes('{"VM":"wasm", "Account":"0x');
-		input1 = _bytesConcat(input1, bytes(_bytes32tohex(contractid)));
+		input1 = _bytesConcat(input1, bytes(_bytes20tohex(contractid)));
 		input1 = _bytesConcat(input1, bytes('", "Fun": "transfer", "InputType": ["accountid","u128"], "InputValue": ["0x'));
-		input1 = _bytesConcat(input1, bytes(_bytes32tohex(bob)));
+		input1 = _bytesConcat(input1, bytes(_bytes20tohex(bob)));
 		input1 = _bytesConcat(input1, bytes('","'));
 		input1 = _bytesConcat(input1, bytes(_uint2str10(value)));
 		input1 = _bytesConcat(input1, bytes('"], "OutputType":[["enum"],["0","2"],["0"]]}'));
@@ -55,12 +55,12 @@ contract TestEvmToken is ERC20 {
 		return _callHybridVM(string(input1));
 	}
 	
-	function evmCallWasmBalance(bytes32 bob, bytes32 contractid) public returns (uint) {
+	function evmCallWasmBalance(bytes20 bob, bytes20 contractid) public returns (uint) {
 		
 		bytes memory input1 = bytes('{"VM":"wasm", "Account":"0x');
-		input1 = _bytesConcat(input1, bytes(_bytes32tohex(contractid)));
+		input1 = _bytesConcat(input1, bytes(_bytes20tohex(contractid)));
 		input1 = _bytesConcat(input1, bytes('", "Fun": "balance_of", "InputType": ["accountid"], "InputValue": ["0x'));
-		input1 = _bytesConcat(input1, bytes(_bytes32tohex(bob)));
+		input1 = _bytesConcat(input1, bytes(_bytes20tohex(bob)));
 		input1 = _bytesConcat(input1, bytes('"], "OutputType":[["u128"]]}'));
 		
 		//string input = '{"VM":"wasm", "Account":"0x' + _bytes32tohex(contractid) + '", "Fun": "balance_of", "InputType": ["accountid"], 
@@ -76,6 +76,15 @@ contract TestEvmToken is ERC20 {
 	
 	function echo(string memory p,  uint[] memory u) public returns (string memory, uint[] memory) {
 		return (p, u);
+	}
+
+	function _bytes20tohex(bytes20 b) internal pure returns (string memory) {
+		bytes memory bytesString = new bytes(40);
+		for (uint i = 0; i < 20; i++) {
+			bytesString[i*2] = _byte2hex(uint8(b[i]) / 16);
+			bytesString[i*2 + 1] = _byte2hex(uint8(b[i]) % 16);
+		}
+		return string(bytesString);
 	}
 	
 	function _bytes32tohex(bytes32 b) internal pure returns (string memory) {

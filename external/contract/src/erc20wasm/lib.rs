@@ -19,22 +19,21 @@
 // Modified by Alex Wang
 
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
+extern crate core;
+
+mod primitives;
 
 use ink_env::Environment;
 use ink_prelude::string::String;
-use sp_core::H160;
 use ink_prelude::vec::Vec;
-//use sp_std::vec::Vec;
 
-type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
+type AccountId = primitives::AccountId;
 #[ink::chain_extension( extension = 0 )]
 pub trait MyChainExtension {
-        type ErrorCode = i32;
-		
-        #[ink(function = 5, handle_status = false)]
-        fn call_evm_extension(vm_input: Vec<u8>) -> String;
-		#[ink(function = 6, handle_status = false)]
-        fn h160_to_accountid(evm_address: H160) -> AccountId;
+    type ErrorCode = i32;
+
+    #[ink(function = 5, handle_status = false)]
+    fn call_evm_extension(vm_input: Vec<u8>) -> String;
 }
 
 
@@ -46,7 +45,7 @@ impl Environment for CustomEnvironment {
     const MAX_EVENT_TOPICS: usize =
         <ink_env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
 
-    type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
+    type AccountId = AccountId;
     type Balance = <ink_env::DefaultEnvironment as Environment>::Balance;
     type Hash = <ink_env::DefaultEnvironment as Environment>::Hash;
     type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
@@ -60,38 +59,38 @@ impl Environment for CustomEnvironment {
 
 #[ink::contract(env = crate::CustomEnvironment)]
 mod erc20 {
-    //#[cfg(not(feature = "ink-as-dependency"))]
-    use ink::storage::Lazy;
-	use ink::storage::Mapping as StorageHashMap;
-	
-	use ink_env::{hash, ReturnFlags};
+    use ink::storage::Mapping as StorageHashMap;
+
     use ink_prelude::string::String;
     use ink_prelude::string::ToString;
-	use ink_prelude::vec;
-	use ink_prelude::vec::Vec;
-	use precompile_utils::prelude::*;
+    use ink_prelude::vec;
+    use ink_prelude::vec::Vec;
     use sp_core::U256;
-	
-	
+
+    use crate::primitives::AccountId as WalletId;
+
+    //evm_fun_abi, wasm_message_name, wasm_message_selector
+    pub type EvmABI = (String, String, Option<[u8; 4]>);
+
     /// A simple ERC-20 contract.
     #[ink(storage)]
     pub struct Erc20 {
         /// Total token supply.
         total_supply: Balance,  //Lazy(Balance),
         /// Mapping from owner to number of owned token.
-        balances: StorageHashMap<AccountId, Balance>,
+        balances: StorageHashMap<WalletId, Balance>,
         /// Mapping of the token amount which an account is allowed to withdraw
         /// from another account.
-        allowances: StorageHashMap<(AccountId, AccountId), Balance>,
+        allowances: StorageHashMap<(WalletId, WalletId), Balance>,
     }
 
     /// Event emitted when a token transfer occurs.
     #[ink(event)]
     pub struct Transfer {
         #[ink(topic)]
-        from: Option<AccountId>,
+        from: Option<WalletId>,
         #[ink(topic)]
-        to: Option<AccountId>,
+        to: Option<WalletId>,
         value: Balance,
     }
 
@@ -100,25 +99,25 @@ mod erc20 {
     #[ink(event)]
     pub struct Approval {
         #[ink(topic)]
-        owner: AccountId,
+        owner: WalletId,
         #[ink(topic)]
-        spender: AccountId,
+        spender: WalletId,
         value: Balance,
     }
-	
-	#[ink(event)]
+
+    #[ink(event)]
     pub struct SelectorError {
         #[ink(topic)]
-        caller: AccountId,
+        caller: WalletId,
         selector: u32,
     }
-	
+
     #[ink(event)]
     pub struct ParameterError {
         #[ink(topic)]
-        caller: AccountId,
+        caller: WalletId,
         parameter: Vec<u8>,
-    }	
+    }
 
     /// The ERC-20 error types.
     #[derive(Debug, PartialEq, Eq)]
@@ -128,8 +127,8 @@ mod erc20 {
         InsufficientBalance,
         /// Returned if not enough allowance to fulfill a request is available.
         InsufficientAllowance,
-		/// Returned if other error.
-		OtherError(String),
+        /// Returned if other error.
+        OtherError(String),
     }
 
     /// The ERC-20 result type.
@@ -147,116 +146,44 @@ mod erc20 {
                 balances,
                 allowances: StorageHashMap::new(),
             };
-			Self::env().emit_event(Transfer {
+            Self::env().emit_event(Transfer {
                 from: None,
                 to: Some(caller),
                 value: initial_supply,
             });
-			instance
+            instance
         }
-		
-        /// Evm ABI interface.
+
+        /// Get Evm ABI interface .
         #[ink(message)]
-        pub fn evm_abi_call(&mut self, para: Vec<u8>) -> Vec<u8> {
-			let who = self.env().caller();
+        pub fn hybridvm_evm_abi(&mut self) -> Vec<EvmABI> {
+            let mut evm_abi: Vec<EvmABI> = vec![];
+            evm_abi.push(("name()returns(string)".to_string(), "name".to_string(), None));
+            evm_abi.push(("symbol()returns(string)".to_string(), "symbol".to_string(), None));
+            evm_abi.push(("decimals()returns(uint8)".to_string(), "decimals".to_string(), None));
+            evm_abi.push(("totalSupply()returns(uint256)".to_string(), "total_supply_abi".to_string(), None));
+            evm_abi.push(("balanceOf(address)returns(uint256)".to_string(), "balance_of_abi".to_string(), None));
+            evm_abi.push(("allowance(address,address)returns(uint256)".to_string(), "allowance_abi".to_string(), None));
+            evm_abi.push(("transfer(address,uint256)returns(bool)".to_string(), "transfer_abi".to_string(), None));
+            evm_abi.push(("approve(address,uint256)returns(bool)".to_string(), "approve_abi".to_string(), None));
+            evm_abi.push(("transferFrom(address,address,uint256)returns(bool)".to_string(), "transfer_from_abi".to_string(), None));
 
-			let mut a: [u8; 4] = Default::default();
-			a.copy_from_slice(&Self::hash_keccak_256(b"balanceOf(address)")[0..4]);
-			let balance_selector = u32::from_be_bytes(a);
-			
-			let mut a: [u8; 4] = Default::default();
-			a.copy_from_slice(&Self::hash_keccak_256(b"transfer(address,uint256)")[0..4]);
-			let transfer_selector = u32::from_be_bytes(a);
-			
-			let evm_selector = if para.len() < 4 { 0 } else {
-				let mut a: [u8; 4] = Default::default();
-				a.copy_from_slice(&para[0..4]);
-				u32::from_be_bytes(a)
-			};
-			
-			match evm_selector {
-				// 1. balanceOf(address account) external view returns (uint256);
-				// balance_of(&self, owner: AccountId) -> Balance;
-				a if a == balance_selector => {
-					if para.len() < 5 {
-						self.env().emit_event(ParameterError {
-                            caller: who,
-                            parameter: para,
-                        });
-						ink_env::return_value::<u8>(ReturnFlags::REVERT, &13u8);						
-					};
-					let parameter = solidity::codec::decode_arguments::<Address>(&para[4..]);
-					match parameter {
-						Ok(t) => {
-							let accountid = self.env().extension().h160_to_accountid(t.0);
+            evm_abi
+        }
 
-							let return_result = self.balance_of(accountid);
-							solidity::codec::encode_arguments::<Balance>(return_result)
-						}
-						Err(_) => {
-							self.env().emit_event(ParameterError {
-                                caller: who,
-                                parameter: para,
-                            });
-							ink_env::return_value::<u8>(ReturnFlags::REVERT, &12u8);
-						}							
-					};
-				}					
-				// 2. transfer(address to, uint256 amount) external returns (bool);
-                // transfer(&mut self, to: AccountId, value: Balance) -> Result<()>
-				b if b == transfer_selector => {
-					if para.len() < 5 {
-						self.env().emit_event(ParameterError {
-                            caller: who,
-                            parameter: para,
-                        });
-						ink_env::return_value::<u8>(ReturnFlags::REVERT, &13u8);						
-					};
-					let parameter = solidity::codec::decode_arguments::<(Address, U256)>(&para[4..]);
-					match parameter {
-						Ok(t) => {
-							let accountid = self.env().extension().h160_to_accountid(t.0.0);
-							let balance = match Balance::try_from(t.1) {
-								Ok(t) => t,
-								Err(_) => {
-							        self.env().emit_event(ParameterError {
-                                        caller: who,
-                                        parameter: para,
-                                    });
-							        ink_env::return_value::<u8>(ReturnFlags::REVERT, &1u8);									
-								}
-							};
-							let return_result = if self.transfer(accountid, balance).is_ok(){
-								true
-							} else { false };
-							solidity::codec::encode_arguments::<bool>(return_result)
-						}
-						Err(_) => {
-							self.env().emit_event(ParameterError {
-                                caller: who,
-                                parameter: para,
-                            });
-							ink_env::return_value::<u8>(ReturnFlags::REVERT, &2u8);
-						}							
-					};
-				}
-				// None
-				_ => {
-					self.env().emit_event(SelectorError {
-                        caller: who,
-                        selector: evm_selector,
-                    });
-					ink_env::return_value::<u8>(ReturnFlags::REVERT, &3u8);
-				}
-			}
-			
-			vec![]
-        }		
+        #[ink(message)]
+        pub fn name(&self) -> String {
+            String::from("WasmTokenT")
+        }
 
-        pub fn hash_keccak_256(input: &[u8]) -> [u8; 32] {
-            let mut output = <hash::Keccak256 as hash::HashOutput>::Type::default();
-            ink_env::hash_bytes::<hash::Keccak256>(input, &mut output);
-            output
+        #[ink(message)]
+        pub fn symbol(&self) -> String {
+            String::from("WTT")
+        }
+
+        #[ink(message)]
+        pub fn decimals(&self) -> u8 {
+            18u8
         }
 
         /// Returns the total token supply.
@@ -265,20 +192,35 @@ mod erc20 {
             self.total_supply
         }
 
+        #[ink(message)]
+        pub fn total_supply_abi(&self) -> U256 {
+            self.total_supply.into()
+        }
+
         /// Returns the account balance for the specified `owner`.
         ///
         /// Returns `0` if the account is non-existent.
         #[ink(message)]
-        pub fn balance_of(&self, owner: AccountId) -> Balance {
+        pub fn balance_of(&self, owner: WalletId) -> Balance {
             self.balances.get(&owner).unwrap_or(0)
+        }
+
+        #[ink(message)]
+        pub fn balance_of_abi(&self, owner: WalletId) -> U256 {
+            self.balances.get(&owner).unwrap_or(0).into()
         }
 
         /// Returns the amount which `spender` is still allowed to withdraw from `owner`.
         ///
         /// Returns `0` if no allowance has been set `0`.
         #[ink(message)]
-        pub fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
+        pub fn allowance(&self, owner: WalletId, spender: WalletId) -> Balance {
             self.allowances.get(&(owner, spender)).unwrap_or(0)
+        }
+
+        #[ink(message)]
+        pub fn allowance_abi(&self, owner: WalletId, spender: WalletId) -> U256 {
+            self.allowances.get(&(owner, spender)).unwrap_or(0).into()
         }
 
         /// Transfers `value` amount of tokens from the caller's account to account `to`.
@@ -290,9 +232,15 @@ mod erc20 {
         /// Returns `InsufficientBalance` error if there are not enough tokens on
         /// the caller's account balance.
         #[ink(message)]
-        pub fn transfer(&mut self, to: AccountId, value: Balance) -> Result<()> {
+        pub fn transfer(&mut self, to: WalletId, value: Balance) -> Result<()> {
             let from = self.env().caller();
             self.transfer_from_to(from, to, value)
+        }
+
+        #[ink(message)]
+        pub fn transfer_abi(&mut self, to: WalletId, value: U256) -> bool {
+            let Ok(value) = Balance::try_from(value) else { return false };
+            self.transfer(to, value).is_ok()
         }
 
         /// Allows `spender` to withdraw from the caller's account multiple times, up to
@@ -302,7 +250,7 @@ mod erc20 {
         ///
         /// An `Approval` event is emitted.
         #[ink(message)]
-        pub fn approve(&mut self, spender: AccountId, value: Balance) -> Result<()> {
+        pub fn approve(&mut self, spender: WalletId, value: Balance) -> Result<()> {
             let owner = self.env().caller();
             self.allowances.insert((owner, spender), &value);
             self.env().emit_event(Approval {
@@ -311,6 +259,12 @@ mod erc20 {
                 value,
             });
             Ok(())
+        }
+
+        #[ink(message)]
+        pub fn approve_abi(&mut self, spender: WalletId, value: U256) -> bool {
+            let Ok(value) = Balance::try_from(value) else { return false };
+            self.approve(spender, value).is_ok()
         }
 
         /// Transfers `value` tokens on the behalf of `from` to the account `to`.
@@ -330,8 +284,8 @@ mod erc20 {
         #[ink(message)]
         pub fn transfer_from(
             &mut self,
-            from: AccountId,
-            to: AccountId,
+            from: WalletId,
+            to: WalletId,
             value: Balance,
         ) -> Result<()> {
             let caller = self.env().caller();
@@ -340,9 +294,20 @@ mod erc20 {
                 return Err(Error::InsufficientAllowance)
             }
             self.transfer_from_to(from, to, value)?;
-			#[allow(clippy::arithmetic_side_effects)]
+            #[allow(clippy::arithmetic_side_effects)]
             self.allowances.insert((from, caller), &(allowance - value));
             Ok(())
+        }
+
+        #[ink(message)]
+        pub fn transfer_from_abi(
+            &mut self,
+            from: WalletId,
+            to: WalletId,
+            value: U256,
+        ) -> bool {
+            let Ok(value) = Balance::try_from(value) else { return false };
+            self.transfer_from(from, to, value).is_ok()
         }
 
         /// Transfers `value` amount of tokens from the caller's account to account `to`.
@@ -355,18 +320,18 @@ mod erc20 {
         /// the caller's account balance.
         fn transfer_from_to(
             &mut self,
-            from: AccountId,
-            to: AccountId,
+            from: WalletId,
+            to: WalletId,
             value: Balance,
         ) -> Result<()> {
             let from_balance = self.balance_of(from);
             if from_balance < value {
                 return Err(Error::InsufficientBalance)
             }
-			#[allow(clippy::arithmetic_side_effects)]
+            #[allow(clippy::arithmetic_side_effects)]
             self.balances.insert(from, &(from_balance - value));
             let to_balance = self.balance_of(to);
-			#[allow(clippy::arithmetic_side_effects)]
+            #[allow(clippy::arithmetic_side_effects)]
             self.balances.insert(to, &(to_balance + value));
             self.env().emit_event(Transfer {
                 from: Some(from),
@@ -375,82 +340,79 @@ mod erc20 {
             });
             Ok(())
         }
-		
-		// Test call EVM contract from this contract
-		#[ink(message)]
+
+        // Test call EVM contract from this contract
+        #[ink(message)]
         pub fn wasmCallEvm(
             &mut self,
-            acnt: String,
-            to: String,
+            acnt: WalletId,
+            to: WalletId,
             value: Balance,
         ) -> Result<String> {
             //let caller = self.env().caller();
 
-			let mut input = r#"{"VM":"evm", "Account":""#.to_string();
-			input.push_str(&acnt);
-			input.push_str(r#"", "Fun":"transfer(address,uint256)", "InputType":["address","uint"], "InputValue":[""#);
-			input.push_str(&to);
-			input.push_str(r#"", ""#);
-			input.push_str(&value.to_string());
-			input.push_str(r#""],  "OutputType":[["bool"]]}"#);
-			
-			//input = '{"VM":"evm", "Account":"0x' + acnt.to_string() + '", "Fun":"transfer(address,uint256)", "InputType":["address","uint"], 
-			//"InputValue":["0x' + to.to_string() +'", "' + value.to_string() + '"],  "OutputType":[["bool"]]}';
-			
+            let mut input = r#"{"VM":"evm", "Account":""#.to_string();
+            input.push_str(&acnt.to_string());
+            input.push_str(r#"", "Fun":"transfer(address,uint256)", "InputType":["address","uint"], "InputValue":[""#);
+            input.push_str(&to.to_string());
+            input.push_str(r#"", ""#);
+            input.push_str(&value.to_string());
+            input.push_str(r#""],  "OutputType":[["bool"]]}"#);
+
             let ret = self.env().extension().call_evm_extension(input.as_bytes().to_vec());
             Ok(ret)
         }
 
-		// Test call EVM contract from this contract
-		#[ink(message)]
+        // Test call EVM contract from this contract
+        #[ink(message)]
         pub fn wasmCallEvmBalance(
             &mut self,
-            acnt: String,
-            who: String,
+            acnt: WalletId,
+            who: WalletId,
         ) -> Result<Balance> {
             //let caller = self.env().caller();
 
-			let mut input = r#"{"VM":"evm", "Account":""#.to_string();
-			input.push_str(&acnt);
-			input.push_str(r#"", "Fun":"balanceOf(address)", "InputType":["address"], "InputValue":[""#);
-			input.push_str(&who);
-			input.push_str(r#""],  "OutputType":[["uint"]]}"#);
-			
-			//input = '{"VM":"evm", "Account":"0x' + acnt.to_string() + '", "Fun":"balanceOf(address)", "InputType":["address"], 
-			//"InputValue":["0x' + to.to_string()"],  "OutputType":[["uint"]]}';
-			
-            let ret = self.env().extension().call_evm_extension(input.as_bytes().to_vec());
-			let return_value_offset: usize;
-			match ret.find(r#""ReturnValue":[""#) {
-				Some(r) => return_value_offset = r,
-				None => return Err(Error::OtherError(String::from("Call EVM error, no ReturnValue!"))),
-			}
-			let result: Balance;
-			#[allow(clippy::arithmetic_side_effects)]
-			match ret[return_value_offset+16..ret.len()-3].parse::<Balance>() {
-				Ok(r) => result = r,
-				Err(e) => return Err(Error::OtherError(e.to_string())),
-			}
-            Ok(result)
-        }	
+            let mut input = r#"{"VM":"evm", "Account":""#.to_string();
+            input.push_str(&acnt.to_string());
+            input.push_str(r#"", "Fun":"balanceOf(address)", "InputType":["address"], "InputValue":[""#);
+            input.push_str(&who.to_string());
+            input.push_str(r#""],  "OutputType":[["uint"]]}"#);
 
-		// Test call EVM contract from this contract
-		#[ink(message)]
+            //input = '{"VM":"evm", "Account":"0x' + acnt.to_string() + '", "Fun":"balanceOf(address)", "InputType":["address"],
+            //"InputValue":["0x' + to.to_string()"],  "OutputType":[["uint"]]}';
+
+            let ret = self.env().extension().call_evm_extension(input.as_bytes().to_vec());
+            let return_value_offset: usize;
+            match ret.find(r#""ReturnValue":[""#) {
+                Some(r) => return_value_offset = r,
+                None => return Err(Error::OtherError(String::from("Call EVM error, no ReturnValue!"))),
+            }
+            let result: Balance;
+            #[allow(clippy::arithmetic_side_effects)]
+            match ret[return_value_offset+16..ret.len()-3].parse::<Balance>() {
+                Ok(r) => result = r,
+                Err(e) => return Err(Error::OtherError(e.to_string())),
+            }
+            Ok(result)
+        }
+
+        // Test call EVM contract from this contract
+        #[ink(message)]
         pub fn wasmCallEvmProxy(
             &mut self,
             data: String,
         ) -> Result<String> {
             Ok(self.env().extension().call_evm_extension(data.as_bytes().to_vec()))
-        }	
+        }
 
-		#[ink(message)]
+        #[ink(message)]
         pub fn echo(
-			&mut self,
-			p: String,
-			u: Vec<u8>,
-		) -> (String, Vec<u8>) {
-			(p, u)
-		}
+            &mut self,
+            p: String,
+            u: Vec<u8>,
+        ) -> (String, Vec<u8>) {
+            (p, u)
+        }
     }
 
     /// Unit tests.
@@ -466,8 +428,8 @@ mod erc20 {
 
         fn assert_transfer_event(
             event: &ink_env::test::EmittedEvent,
-            expected_from: Option<AccountId>,
-            expected_to: Option<AccountId>,
+            expected_from: Option<WalletId>,
+            expected_to: Option<WalletId>,
             expected_value: Balance,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
@@ -520,7 +482,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
         }
@@ -535,7 +497,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             // Get the token total supply.
@@ -552,7 +514,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             let accounts =
@@ -585,14 +547,14 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             // Check the second transfer event relating to the actual trasfer.
             assert_transfer_event(
                 &emitted_events[1],
-                Some(AccountId::from([0x01; 32])),
-                Some(AccountId::from([0x02; 32])),
+                Some(WalletId::from([0x01; 32])),
+                Some(WalletId::from([0x02; 32])),
                 10,
             );
         }
@@ -638,7 +600,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
         }
@@ -693,14 +655,14 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             // The second event `emitted_events[1]` is an Approve event that we skip checking.
             assert_transfer_event(
                 &emitted_events[2],
-                Some(AccountId::from([0x01; 32])),
-                Some(AccountId::from([0x05; 32])),
+                Some(WalletId::from([0x01; 32])),
+                Some(WalletId::from([0x05; 32])),
                 10,
             );
         }
@@ -786,8 +748,8 @@ mod erc20 {
 
         fn assert_transfer_event(
             event: &ink_env::test::EmittedEvent,
-            expected_from: Option<AccountId>,
-            expected_to: Option<AccountId>,
+            expected_from: Option<WalletId>,
+            expected_to: Option<WalletId>,
             expected_value: Balance,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
@@ -847,7 +809,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
         }
@@ -862,7 +824,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             // Get the token total supply.
@@ -879,7 +841,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             let accounts =
@@ -910,14 +872,14 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             // Check the second transfer event relating to the actual trasfer.
             assert_transfer_event(
                 &emitted_events[1],
-                Some(AccountId::from([0x01; 32])),
-                Some(AccountId::from([0x02; 32])),
+                Some(WalletId::from([0x01; 32])),
+                Some(WalletId::from([0x02; 32])),
                 10,
             );
         }
@@ -952,7 +914,7 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
         }
@@ -995,14 +957,14 @@ mod erc20 {
             assert_transfer_event(
                 &emitted_events[0],
                 None,
-                Some(AccountId::from([0x01; 32])),
+                Some(WalletId::from([0x01; 32])),
                 100,
             );
             // The second event `emitted_events[1]` is an Approve event that we skip checking.
             assert_transfer_event(
                 &emitted_events[2],
-                Some(AccountId::from([0x01; 32])),
-                Some(AccountId::from([0x05; 32])),
+                Some(WalletId::from([0x01; 32])),
+                Some(WalletId::from([0x05; 32])),
                 10,
             );
         }
